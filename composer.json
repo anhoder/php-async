@@ -1,0 +1,23 @@
+{
+    "name": "alanalbert/php-async",
+    "description": "PHP实现异步",
+    "type": "library",
+    "require": {
+        "ext-pcntl": "^7.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.5"
+    },
+    "license": "GPL",
+    "authors": [
+        {
+            "name": "AlanAlbert",
+            "email": "alan1766447919@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Async\\": "src/"
+        }
+    }
+}
