@@ -8,36 +8,47 @@ use Async\Exception\FileException;
 use Async\Exception\SessionException;
 use Async\Exception\JobException;
 use Async\Exception\PidsFileException;
+use Async\Logger;
+use \Throwable;
 
 class DaemonProcess
 {
-    const PID_DIR           = __DIR__ . '/../pid/';
+    const PID_DIR           = '/tmp/php-async-pid/';
     const PIDS_FILE         = 'php-async.pids';         // 保存各个守护程序的信息
-    const LOG_DIR           = '/tmp/php-async/';        // 守护程序的日志文件所在目录
 
-    const STATUS_RUNNING    = 'running';                // 进程运行状态：运行中
-    const STATUS_STOP       = 'stopped';                // 进程运行状态：已停止
-    const STATUS_COMPLETE   = 'completed';              // 进程运行状态：已完成
+    const STATUS_RUNNING    = 'RUNNING';                // 进程运行状态：运行中
+    const STATUS_STOPPED    = 'STOPPED';                // 进程运行状态：已停止
+    const STATUS_COMPLETED  = 'COMPLETED';              // 进程运行状态：已完成
 
-    private $pidFile        = null;                     // 守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
-    private $logFile        = null;                     // 日志文件，使用日期(2019-08-03)作为文件名
-    private $job            = null;                     
+    protected $pidFile      = null;                     // 守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
+    protected $job          = null;                     
 
+    /**
+     * 构造函数
+     *
+     * @param JobInterface $job
+     */
     public function __construct(JobInterface $job)
     {
-        $this->checkEnv();
-        $this->job = $job;
+        try {
+            $this->checkEnv();
+            $this->job = $job;
+        } catch (Throwable $e) {
+            Logger::log(Logger::TYPE_ERROR, $e->getMessage());
+            die($e->getMessage());
+        }
     }
 
     /**
      * 检验是否安装pcntl扩展
+     * 
      * @return void 
      * @throws EnvException 运行环境错误
      */
-    private function checkEnv()
+    protected function checkEnv()
     {
         if (!function_exists('pcntl_fork')) {
-            throw new EnvException('require extension pcntl');
+            throw new EnvException('require extension: pcntl');
         }
     }
     
@@ -49,32 +60,40 @@ class DaemonProcess
      */
     public function run()
     {
-        $pid = pcntl_fork();
-        if ($pid < 0) {         // 创建失败
-            throw new ForkException('Fork process error.');
-        } elseif ($pid === 0) { // 子进程执行代码
-            // 分离Session
-            if (posix_setsid() == -1) {
-                throw new SessionException('Separate session error.');
+        try {
+            $pid = pcntl_fork();
+            if ($pid < 0) {         // 创建失败
+                throw new ForkException('Fork process error.');
+            } elseif ($pid === 0) { // 子进程执行代码
+                // 分离Session
+                if (posix_setsid() == -1) {
+                    throw new SessionException('Separate session error.');
+                }
+                // chdir('/');
+                umask(0);
+            
+                // 创建pid文件
+                $this->createPidFile();
+            
+                // 更新pids文件
+                $this->updatePidsFile(self::STATUS_RUNNING);
+
+                // 写入日志
+                Logger::log(Logger::TYPE_RUNNING, 'Process(' . posix_getpid() . ') start running');
+            
+                // 运行主任务及回调函数
+                $this->job->job();
+                $this->job->callback();
+            
+                // 杀死守护进程
+                $this->kill();
+            } else {
+                // 父进程忽略子进程的结束，将回收权交给内核init
+                pcntl_signal(SIGCHLD, SIG_IGN);
             }
-            // chdir('/');
-            umask(0);
-        
-            // 创建pid文件
-            $this->createPidFile();
-        
-            // 更新pids文件
-            $this->updatePidsFile(self::STATUS_RUNNING);
-        
-            // 运行主任务及回调函数
-            $this->job->job();
-            $this->job->callback();
-        
-            // 杀死守护进程
-            $this->kill();
-        } else {
-            // 父进程忽略子进程的结束，将回收权交给内核init
-            pcntl_signal(SIGCHLD, SIG_IGN);
+        } catch (Throwable $e) {
+            Logger::log(Logger::TYPE_ERROR, $e->getMessage());
+            die($e->getMessage());
         }
     }
     
@@ -84,9 +103,12 @@ class DaemonProcess
      * @return void
      * @throws FileException
      */
-    private function createPidFile()
+    protected function createPidFile()
     {
         $pid = posix_getpid();
+        if (!is_dir(self::PID_DIR)) {
+            mkdir(self::PID_DIR);
+        }
         $this->pidFile = self::PID_DIR . 'php-async-' . $pid . '.pid';
         if (!file_put_contents($this->pidFile, $pid)) {
             throw new FileException('Write pid file error (' . $this->pidFile . ')');
@@ -99,9 +121,9 @@ class DaemonProcess
      * @return void
      * @throws FileException
      */
-    private function removePidFile()
+    protected function removePidFile()
     {
-        if (!file_exists($this->pidFile)) {
+        if (!is_file($this->pidFile)) {
             throw new FileException('Pid file not exists');
         }
         if (!unlink($this->pidFile)) {
@@ -116,10 +138,10 @@ class DaemonProcess
      * @return void
      * @throws PidsFileException|FileException|Exception
      */
-    private function updatePidsFile(string $status)
+    protected function updatePidsFile(string $status)
     {
         $pid = posix_getpid();
-        if (file_exists(self::PID_DIR . self::PIDS_FILE)) {
+        if (is_file(self::PID_DIR . self::PIDS_FILE)) {
             $content = file_get_contents(self::PID_DIR . self::PIDS_FILE);
             $jobs = json_decode($content, true) ?? [];
         } else {
@@ -133,8 +155,8 @@ class DaemonProcess
                     'over_time'     => ''
                 ];
                 break;
-            case self::STATUS_STOP:
-            case self::STATUS_COMPLETE:
+            case self::STATUS_STOPPED:
+            case self::STATUS_COMPLETED:
                 if (!isset($jobs[$pid])) {
                     throw new PidsFileException('Pids file error');
                 }
@@ -155,112 +177,11 @@ class DaemonProcess
      *
      * @return void
      */
-    private function kill()
+    protected function kill()
     {
-        $this->updatePidsFile(self::STATUS_COMPLETE);
+        $this->updatePidsFile(self::STATUS_COMPLETED);
         $this->removePidFile();
+        Logger::log(Logger::TYPE_COMPLETED, 'Process(' . posix_getpid() . ') is completed');
         posix_kill(posix_getpid(), SIGTERM);
-    }
-
-    /**
-     * 启动守护进程
-     *
-     * @return void
-     */
-    private function start()
-    {
-        if ($this->getPid()) {
-            $this->tips('进程正在运行...' . PHP_EOL);
-            return;
-        }
-        $this->tips('启动成功' . PHP_EOL);
-        $this->daemonize();
-    }
-
-    /**
-     * 停止进程
-     *
-     * @return void
-     */
-    private function stop()
-    {
-        if ($pid = $this->getPid()) {
-            posix_kill($pid, SIGTERM);
-            unlink($this->pid_file);
-            $this->tips('停止成功, Bye~' . PHP_EOL);
-        } else {
-            $this->tips('进程未运行~.~' . PHP_EOL);
-        }
-    }
-
-    /**
-     * 获取状态
-     *
-     * @return void
-     */
-    private function status()
-    {
-        if ($this->getPid()) {
-            $this->tips('进程正在运行...' . PHP_EOL);
-        } else {
-            $this->tips('进程已停止...' . PHP_EOL);
-        }
-    }
-
-    /**
-     * 输出提示信息
-     *
-     * @param string $msg 提示内容
-     * @return void
-     */
-    private function tips($msg)
-    {
-        printf("%s: %s\n", date('Y-m-d H:i:s'), $msg);
-    }
-
-    /**
-     * 获取守护进程pid
-     *
-     * @return void
-     */
-    private function getPid()
-    {
-        if (!file_exists($this->pid_file)) {
-            return 0;
-        }
-        $pid = intval(file_get_contents($this->pid_file));
-        if (posix_kill($pid, SIG_DFL)) {
-            return $pid;
-        } else {
-            unlink($this->pid_file);
-            return 0;
-        }
-    }
-
-    /**
-     * 运行
-     *
-     * @return void
-     */
-    public function run1($argv)
-    {
-        if (count($argv) < 2) {
-            $this->tips('Params: stop | start | status');
-            return;
-        }
-        switch ($argv[1]) {
-            case 'start':
-                $this->start();
-                break;
-            case 'stop':
-                $this->stop();
-                break;
-            case 'status':
-                $this->status();
-                break;
-            default:
-                $this->tips('Params: stop | start | status');
-                break;
-        }
     }
 }

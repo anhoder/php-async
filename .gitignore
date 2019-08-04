@@ -1,5 +1,1 @@
-*.pid
-*.pids
-*.txt
 /vendor/
-
