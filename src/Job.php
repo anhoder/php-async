@@ -72,7 +72,7 @@ class Job implements JobInterface
     /**
      * 设置主任务
      *
-     * @param Closure | callable $job
+     * @param Closure|callable $job
      * @param array $params
      * @return void
      */
@@ -90,7 +90,7 @@ class Job implements JobInterface
     /**
      * 设置回调函数
      *
-     * @param Closure | callable $callback
+     * @param Closure|callable $callback
      * @param array $params
      * @return void
      */
@@ -104,4 +104,5 @@ class Job implements JobInterface
             $this->callbackParams = $params;
         }
     }
+
 }

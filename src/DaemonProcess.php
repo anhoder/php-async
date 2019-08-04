@@ -7,10 +7,12 @@ use Async\Exception\ForkException;
 use Async\Exception\FileException;
 use Async\Exception\SessionException;
 use Async\Exception\JobException;
+use Async\Exception\PidsFileException;
 
 class DaemonProcess
 {
-    const PIDS_FILE         = './php-async.pids';    // 保存各个守护程序的信息
+    const PID_DIR           = './';
+    const PIDS_FILE         = 'php-async.pids';         // 保存各个守护程序的信息
     const LOG_DIR           = '/tmp/php-async/';        // 守护程序的日志文件所在目录
 
     const STATUS_RUNNING    = 'running';                // 进程运行状态：运行中
@@ -19,7 +21,7 @@ class DaemonProcess
 
     private $pidFile        = null;                     // 守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
     private $logFile        = null;                     // 日志文件，使用日期(2019-08-03)作为文件名
-    private $job            = null;
+    private $job            = null;                     
 
     public function __construct(JobInterface $job)
     {
@@ -43,57 +45,123 @@ class DaemonProcess
      * 创建并执行守护程序
      *
      * @return void
+     * @throws ForkException|SessionException
      */
     public function run()
     {
         $pid = pcntl_fork();
         if ($pid < 0) {         // 创建失败
             throw new ForkException('Fork process error.');
-        } elseif ($pid > 0) { // 父进程执行代码
-            exit;
+        } elseif ($pid === 0) { // 子进程执行代码
+            // 分离Session
+            if (posix_setsid() == -1) {
+                throw new SessionException('Separate session error.');
+            }
+            // chdir('/');
+            umask(0);
+        
+            // 创建pid文件
+            $this->createPidFile();
+        
+            // 更新pids文件
+            $this->updatePidsFile(self::STATUS_RUNNING);
+        
+            // 运行主任务及回调函数
+            $this->job->job();
+            $this->job->callback();
+        
+            // 杀死守护进程
+            $this->kill();
+        } else {
+            // 父进程忽略子进程的结束，将回收权交给内核init
+            pcntl_signal(SIGCHLD, SIG_IGN);
         }
-
-        // 子进程执行
-        // 分离Session
-        if (posix_setsid() == -1) {
-            throw new SessionException('Separate session error.');
-        }
-        // chdir('/');
-        umask(0);
+    }
     
-        // 写入pid文件
+    /**
+     * 创建pid文件
+     *
+     * @return void
+     * @throws FileException
+     */
+    private function createPidFile()
+    {
         $pid = posix_getpid();
-        $this->pidFile = './php-async-' . $pid . '.pid';
+        $this->pidFile = self::PID_DIR . 'php-async-' . $pid . '.pid';
         if (!file_put_contents($this->pidFile, $pid)) {
             throw new FileException('Write pid file error (' . $this->pidFile . ')');
         }
-    
-        // 更新pids文件
+    }
+
+    /**
+     * 删除pid文件
+     *
+     * @return void
+     * @throws FileException
+     */
+    private function removePidFile()
+    {
+        if (!file_exists($this->pidFile)) {
+            throw new FileException('Pid file not exists');
+        }
+        if (!unlink($this->pidFile)) {
+            throw new FileException('Remove pid file error');
+        }
+    }
+
+    /**
+     * 更新pids文件
+     *
+     * @param string $status
+     * @return void
+     * @throws PidsFileException|FileException|Exception
+     */
+    private function updatePidsFile(string $status)
+    {
+        $pid = posix_getpid();
         if (file_exists(self::PIDS_FILE)) {
-            $content = file_get_contents(self::PIDS_FILE);
-            $jobs = json_decode($content) ?? [];
+            $content = file_get_contents(self::PID_DIR . self::PIDS_FILE);
+            $jobs = json_decode($content, true) ?? [];
         } else {
             $jobs = [];
         }
-        array_push($jobs, [
-            'pid'           => $pid,
-            'status'        => self::STATUS_RUNNING,
-            'creat_time'    => date('Y-m-d H:i:s'),
-            'over_time'     => ''
-        ]);
+        switch ($status) {
+            case self::STATUS_RUNNING:
+                $jobs[$pid] = [
+                    'status'        => $status,
+                    'creat_time'    => date('Y-m-d H:i:s'),
+                    'over_time'     => ''
+                ];
+                break;
+            case self::STATUS_STOP:
+            case self::STATUS_COMPLETE:
+                if (!isset($jobs[$pid])) {
+                    throw new PidsFileException('Pids file error');
+                }
+                $jobs[$pid]['status']       = $status;
+                $jobs[$pid]['over_time']    = date('Y-m-d H:i:s');
+                break;
+            default:
+                throw new Exception('Status error');
+        }
         $content = json_encode($jobs);
-        if (!file_put_contents(self::PIDS_FILE, $content)) {
+        if (!file_put_contents(self::PID_DIR . self::PIDS_FILE, $content)) {
             throw new FileException('Write file error (' . self::PIDS_FILE . ')');
         }
-    
-        // 运行主任务及回调函数
-        $this->job->job();
-        $this->job->callback();
-    
-        // 杀死守护进程
-        posix_kill($pid, SIGTERM);
     }
-    
+
+    /**
+     * 杀死当前进程
+     *
+     * @return void
+     */
+    private function kill()
+    {
+        $this->updatePidsFile(self::STATUS_COMPLETE);
+        $this->removePidFile();
+        posix_kill(posix_getpid(), SIGTERM);
+    }
+
     /**
      * 启动守护进程
      *
