@@ -9,7 +9,7 @@
     "require-dev": {
         "phpunit/phpunit": "^7.5"
     },
-    "license": "GPL",
+    "license": "MIT",
     "authors": [
         {
             "name": "AlanAlbert",
