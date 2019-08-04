@@ -11,7 +11,7 @@ use Async\Exception\PidsFileException;
 
 class DaemonProcess
 {
-    const PID_DIR           = './';
+    const PID_DIR           = __DIR__ . '/../pid/';
     const PIDS_FILE         = 'php-async.pids';         // 保存各个守护程序的信息
     const LOG_DIR           = '/tmp/php-async/';        // 守护程序的日志文件所在目录
 
@@ -119,7 +119,7 @@ class DaemonProcess
     private function updatePidsFile(string $status)
     {
         $pid = posix_getpid();
-        if (file_exists(self::PIDS_FILE)) {
+        if (file_exists(self::PID_DIR . self::PIDS_FILE)) {
             $content = file_get_contents(self::PID_DIR . self::PIDS_FILE);
             $jobs = json_decode($content, true) ?? [];
         } else {
