@@ -1,15 +1,51 @@
 <?php
+/**
+ * Class Logger 
+ * 日志文件
+ *
+ * @source    Logger.php
+ * @package   Async
+ * @author    AlanAlbert <alan1766447919@gmail.com>
+ * @version   v1.0.0	Sunday, July 28th, 2019.
+ * @copyright Copyright (c) 2019, AlanAlbert
+ * @license   MIT License
+ */
 namespace Async;
 
+/**
+ * 记录日志
+ * 
+ */
 class Logger
 {
+    /**
+     * @var		string	TYPE_RUNNING     运行中
+     */
     const TYPE_RUNNING          = 'RUNNING';                // 日志类型：成功
+
+
+    /**
+     * @var		mixed	TYPE_STOPPED     停止
+     */
     const TYPE_STOPPED          = 'STOPPED';                // 日志类型：停止
+
+
+    /**
+     * @var		mixed	TYPE_COMPLETED   完成
+     */
     const TYPE_COMPLETED        = 'COMPLETED';              // 日志类型：完成
+
+
+    /**
+     * @var		mixed	TYPE_ERROR	    失败
+     */
     const TYPE_ERROR            = 'ERROR';                  // 日志类型：失败
 
     const LOG_DIR               = '/tmp/php-async-log/';    // 守护程序的日志文件所在目录
 
+    /**
+     * @var		string|null	$logFile    日志文件，格式为2019-08-03.log
+     */
     protected static $logFile   = null;                     // 日志文件，使用日期(2019-08-03)作为文件名
 
     /**
@@ -20,7 +56,7 @@ class Logger
      * @return void
      * @throws FileException
      */
-    public static function log(string $type, string $msg)
+    public static function log($type, $msg)
     {
         if (!is_dir(self::LOG_DIR)) {
             if (!mkdir(self::LOG_DIR)) {

@@ -1,4 +1,15 @@
 <?php
+/**
+ * Class Job 
+ * 异步任务，实现Async\Contract\JobInterface接口
+ *
+ * @source    Job.php
+ * @package   Async
+ * @author    AlanAlbert <alan1766447919@gmail.com>
+ * @version   v1.0.0	Sunday, July 28th, 2019.
+ * @copyright Copyright (c) 2019, AlanAlbert
+ * @license   MIT License
+ */
 namespace Async;
 
 use Async\Contract\JobInterface;
@@ -6,20 +17,20 @@ use \Closure;
 use \BadFunctionCallException;
 
 /**
- * Job类，实现JobInterface接口
- * class Job
+ * 异步任务，实现Async\Contract\JobInterface接口
+ * 
  */
 class Job implements JobInterface
 {
     /**
      * 需要执行的任务
-     * @var		mixed	$job
+     * @var		callable|Closure|null	$job
      */
     protected $jobFunc        = null;
 
     /**
      * 任务需要的参数
-     * @var		mixed	$jobParams
+     * @var		array|null	$jobParams
      */
     protected $jobParams      = null;
 
@@ -31,13 +42,13 @@ class Job implements JobInterface
 
     /**
      * 回调函数
-     * @var		mixed	$callback
+     * @var		callable|Closure|null	$callback
      */
     protected $callbackFunc   = null;
 
     /**
      * 回调函数的参数，传入回调函数的第二个参数
-     * @var		mixed	$callbackParams
+     * @var		array|null	$callbackParams
      */
     protected $callbackParams = null;
 
@@ -46,10 +57,11 @@ class Job implements JobInterface
      *
      * @return void
      */
-    public function job(): void
+    public function job()
     {
         if ($this->jobFunc instanceof Closure) {
-            $this->jobReturn = ($this->jobFunc)();
+            $jobFunc = $this->jobFunc;
+            $this->jobReturn = $jobFunc($this->jobParams);
         } else {
             $this->jobReturn = call_user_func($this->jobFunc, $this->jobParams);
         }
@@ -60,10 +72,11 @@ class Job implements JobInterface
      *
      * @return void
      */
-    public function callback(): void
+    public function callback()
     {
         if ($this->callbackFunc instanceof Closure) {
-            ($this->callbackFunc)($this->jobReturn);
+            $callbackFunc = $this->callbackFunc;
+            $callbackFunc($this->jobReturn, $this->callbackParams);
         } else {
             call_user_func($this->callbackFunc, $this->jobReturn, $this->callbackParams);
         }

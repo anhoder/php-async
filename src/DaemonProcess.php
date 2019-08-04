@@ -1,4 +1,15 @@
 <?php
+/**
+ * Class DaemonProcess
+ * 守护进程
+ *
+ * @source    DaemonProcess.php
+ * @package   Async
+ * @author    AlanAlbert <alan1766447919@gmail.com>
+ * @version   v1.0.0	Sunday, July 28th, 2019.
+ * @copyright Copyright (c) 2019, AlanAlbert
+ * @license   MIT License
+ */
 namespace Async;
 
 use Async\Contract\JobInterface;
@@ -11,22 +22,52 @@ use Async\Exception\PidsFileException;
 use Async\Logger;
 use \Throwable;
 
+/**
+ * 创建守护程序
+ * 
+ */
 class DaemonProcess
 {
+    /**
+     * @var		string	PID_DIR             PID目录
+     */
     const PID_DIR           = '/tmp/php-async-pid/';
-    const PIDS_FILE         = 'php-async.pids';         // 保存各个守护程序的信息
 
-    const STATUS_RUNNING    = 'RUNNING';                // 进程运行状态：运行中
-    const STATUS_STOPPED    = 'STOPPED';                // 进程运行状态：已停止
-    const STATUS_COMPLETED  = 'COMPLETED';              // 进程运行状态：已完成
+    /**
+     * @var		string	PIDS_FILE             存各个守护程序的信息
+     */
+    const PIDS_FILE         = 'php-async.pids';        
 
-    protected $pidFile      = null;                     // 守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
+    /**
+     * @var		string	STATUS_RUNNING      进程运行状态：运行中
+     */
+    const STATUS_RUNNING    = 'RUNNING';  
+
+    /**
+     * @var		string	STATUS_STOPPED      进程运行状态：已停止
+     */
+    const STATUS_STOPPED    = 'STOPPED';                
+    
+    /**
+     * @var		string	STATUS_COMPLETED    进程运行状态：已完成
+     */
+    const STATUS_COMPLETED  = 'COMPLETED';              
+
+    /**
+     * @var		string|null	$pidFile        守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
+     */
+    protected $pidFile      = null;
+
+    /**
+     * @var		string|null	$job            异步任务
+     */
     protected $job          = null;                     
 
     /**
      * 构造函数
      *
      * @param JobInterface $job
+     * @return void
      */
     public function __construct(JobInterface $job)
     {
@@ -138,12 +179,12 @@ class DaemonProcess
      * @return void
      * @throws PidsFileException|FileException|Exception
      */
-    protected function updatePidsFile(string $status)
+    protected function updatePidsFile($status)
     {
         $pid = posix_getpid();
         if (is_file(self::PID_DIR . self::PIDS_FILE)) {
             $content = file_get_contents(self::PID_DIR . self::PIDS_FILE);
-            $jobs = json_decode($content, true) ?? [];
+            $jobs = json_decode($content, true) ? json_decode($content, true) : [];
         } else {
             $jobs = [];
         }

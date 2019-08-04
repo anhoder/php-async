@@ -1,8 +1,22 @@
 <?php
+/**
+ * ForkException
+ * 创建进程异常
+ *
+ * @source    ForkException.php
+ * @package   Async\Exception
+ * @author    AlanAlbert <alan1766447919@gmail.com>
+ * @version   v1.0.0	Sunday, July 28th, 2019.
+ * @copyright Copyright (c) 2019, AlanAlbert
+ * @license   MIT License
+ */
 namespace Async\Exception;
 
 use \Exception;
 
+/**
+ * 创建进程异常
+ */
 class ForkException extends Exception
 {
 
