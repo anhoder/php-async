@@ -1,6 +1,6 @@
 {
     "name": "alanalbert/php-async",
-    "description": "PHP实现异步",
+    "description": "PHP实现异步回调",
     "type": "library",
     "require": {
         "ext-pcntl": "*",
