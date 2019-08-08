@@ -192,8 +192,8 @@ class DaemonProcess
             case self::STATUS_RUNNING:
                 $jobs[$pid] = [
                     'status'        => $status,
-                    'creat_time'    => date('Y-m-d H:i:s'),
-                    'over_time'     => ''
+                    'start_time'    => date('Y-m-d H:i:s'),
+                    'end_time'      => ''
                 ];
                 break;
             case self::STATUS_STOPPED:
@@ -202,7 +202,7 @@ class DaemonProcess
                     throw new PidsFileException('Pids file error');
                 }
                 $jobs[$pid]['status']       = $status;
-                $jobs[$pid]['over_time']    = date('Y-m-d H:i:s');
+                $jobs[$pid]['end_time']    = date('Y-m-d H:i:s');
                 break;
             default:
                 throw new Exception('Status error');
