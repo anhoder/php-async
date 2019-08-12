@@ -54,7 +54,7 @@ class DaemonProcess
     const STATUS_COMPLETED  = 'COMPLETED';              
 
     /**
-     * @var		string|null	$pidFile        守护进程的pid文件，格式为/var/run/php-async-{$pid}.pid
+     * @var		string|null	$pidFile        守护进程的pid文件，格式为/tmp/php-async-pid/php-async-{$pid}.pid
      */
     protected $pidFile      = null;
 
@@ -201,7 +201,7 @@ class DaemonProcess
                 if (!isset($jobs[$pid])) {
                     throw new PidsFileException('Pids file error');
                 }
-                $jobs[$pid]['status']       = $status;
+                $jobs[$pid]['status']      = $status;
                 $jobs[$pid]['end_time']    = date('Y-m-d H:i:s');
                 break;
             default:
