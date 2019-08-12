@@ -2,6 +2,16 @@
 
 PHP异步回调的简单实现
 
+**php-fpm模式的使用，仍在测试，可能会出现未知问题。**
+
+* 已解决问题：
+
+> 解决异步进程执行完成后，成为僵尸进程的问题
+> 经测试，异步进程的fork不受php-fpm配置的进程数限制
+
+* 仍存在的问题：
+
+
 ## Requirement / 依赖
 
 * ext-pcntl
@@ -16,6 +26,8 @@ composer require alanalbert/php-async
 ## Usage / 使用
 
 > 该库可以工作在php-fpm或cli模式下。（但是，每个异步任务会创建一个进程进行处理，直至任务完成后才会被**彻底杀死**）
+
+**现在可以使用[PHP Async Manager](https://github.com/AlanAlbert/php-async-manager)命令行工具进行异步任务管理。**
 
 ### 使用实例
 
@@ -87,5 +99,4 @@ setCallback($callback, $params = null): void
 
 ## TODO
 
-* 命令行工具，查看异步任务的状态，停止异步任务的运行，查看日志...
 * ...
