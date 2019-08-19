@@ -63,7 +63,9 @@ class Job implements JobInterface
             $jobFunc = $this->jobFunc;
             $this->jobReturn = $jobFunc($this->jobParams);
         } else {
+            Logger::log(Logger::TYPE_RUNNING, '开始运行异步任务...');
             $this->jobReturn = call_user_func($this->jobFunc, $this->jobParams);
+            Logger::log(Logger::TYPE_COMPLETED, '异步任务执行完毕.');
         }
     }
 
@@ -78,7 +80,9 @@ class Job implements JobInterface
             $callbackFunc = $this->callbackFunc;
             $callbackFunc($this->jobReturn, $this->callbackParams);
         } else {
+            Logger::log(Logger::TYPE_RUNNING, '开始执行回调函数...');
             call_user_func($this->callbackFunc, $this->jobReturn, $this->callbackParams);
+            Logger::log(Logger::TYPE_COMPLETED, '回调函数执行完毕.');
         }
     }
 
